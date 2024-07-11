@@ -2,7 +2,6 @@ package main
 
 import (
 	"math/rand"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -55,8 +54,6 @@ func (m Matrix) Init() tea.Cmd {
 }
 
 func (m Matrix) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var newCmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case MatrixResized:
 		if msg.ID == m.ID {
@@ -68,11 +65,11 @@ func (m Matrix) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case MatrixTick:
 		if msg.ID == m.ID {
 			m = m.dropSymbols()
-			newCmd = m.doTick()
+			return m, m.doTick()
 		}
 	}
 
-	return m, newCmd
+	return m, nil
 }
 
 func (m Matrix) View() string {
@@ -80,20 +77,20 @@ func (m Matrix) View() string {
 	nColumn := m.Width / 2
 	style := lipgloss.NewStyle().Background(matrixBg)
 
-	var sb strings.Builder
+	var rows []string
 	for row := 0; row < nRow; row++ {
+		var r []string
 		for col := 0; col < nColumn; col++ {
 			colorIdx := m.colors[col][row]
 			color := matrixPalettes[colorIdx]
 			bold := colorIdx != 0
 
-			sb.WriteString(style.Bold(bold).Foreground(color).Render(m.symbols[col][row]))
-			sb.WriteString(" ")
+			r = append(r, style.Bold(bold).Foreground(color).Render(m.symbols[col][row]+" "))
 		}
-		sb.WriteString("\n")
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left, r...))
 	}
 
-	return sb.String()
+	return lipgloss.JoinVertical(lipgloss.Top, rows...)
 }
 
 func (m Matrix) doTick() tea.Cmd {
@@ -136,9 +133,7 @@ func (m Matrix) dropSymbols() Matrix {
 	// Move down each columns color
 	for col, rows := range m.colors {
 		// Move down the color idx
-		for row := len(rows) - 1; row >= 1; row-- {
-			m.colors[col][row] = m.colors[col][row-1]
-		}
+		m.colors[col] = append(rows[:1], rows[:len(rows)-1]...)
 
 		// Reduce the color of first row
 		m.colors[col][0]--
